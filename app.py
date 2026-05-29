@@ -171,11 +171,11 @@ elif st.session_state.status_game == "quest_running":
     
     col3, col4 = st.columns(2)
     with col3:
-        if st.button("✅ SAYA BERHASIL", type="success", use_container_width=True):
+        if st.button("✅ SAYA BERHASIL", type="primary", use_container_width=True):
             st.session_state.status_game = "form_pembuktian"
             st.rerun()
     with col4:
-        if st.button("❌ SAYA GAGAL / MENYERAH", type="danger", use_container_width=True):
+        if st.button("❌ SAYA GAGAL / MENYERAH", type="secondary", use_container_width=True):
             st.session_state.total_poin -= 30
             st.error("Quest Gagal! Poin kamu dipotong -30. Jangan menyerah, coba lagi nanti!")
             time.sleep(2)
