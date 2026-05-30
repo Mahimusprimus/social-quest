@@ -1,11 +1,12 @@
 import streamlit as st
 import random
 import time
+from datetime import datetime, timedelta
 
 # Set halaman agar tampilannya rapi dan responsif di HP/Laptop
 st.set_page_config(page_title="Social Daily Quest", page_icon="🔥", layout="centered")
 
-# DATABASE 100 TANTANGAN SOSIAL (Sama seperti sebelumnya)
+# DATABASE 100 TANTANGAN SOSIAL
 BANK_QUEST = [
     # --- EASY (Poin: 50) ---
     {"id": 1, "teks": "Tanyakan jam saat ini kepada orang asing meskipun kamu tahu jam berapa sekarang.", "lokasi": ["Mall", "Studio Musik", "Perpustakaan", "Kafe", "Sekolah", "Taman"], "waktu": ["Pagi", "Siang", "Sore", "Malam"], "kesulitan": "Easy", "poin": 50},
@@ -116,22 +117,24 @@ BANK_QUEST = [
     {"id": 100, "teks": "Beranikan diri meminta foto bersama dengan seseorang yang baru saja selesai kamu ajak mengobrol panjang (orang asing total) sebagai kenang-kenangan quest.", "lokasi": ["Mall", "Studio Musik", "Kafe", "Taman", "Sekolah"], "waktu": ["Siang", "Sore", "Malam"], "kesulitan": "Expert", "poin": 250}
 ]
 
-# Inisialisasi Session State (Sistem memori agar data website tidak hilang saat di-refresh)
+# Inisialisasi Session State (Sistem memori)
 if "total_poin" not in st.session_state:
     st.session_state.total_poin = 0
 if "quest_aktif" not in st.session_state:
     st.session_state.quest_aktif = None
 if "status_game" not in st.session_state:
-    st.session_state.status_game = "menu"  # menu, quest_running, form_pembuktian
+    st.session_state.status_game = "menu"
+if "waktu_mulai" not in st.session_state:
+    st.session_state.waktu_mulai = None
 
 # --- TAMPILAN HEADER WEBSITE ---
 st.title("🔥 Real-Life Social Daily Quest")
 st.subheader("Ubah dunia nyata jadi RPG dan latih skill sosialmu!")
 
-# Tampilkan Poin Pemain di Pojok Atas/Sidebar
+# Tampilkan Poin Pemain di Sidebar
 st.sidebar.metric(label="🏆 TOTAL POIN KAMU", value=st.session_state.total_poin)
 st.sidebar.markdown("---")
-st.sidebar.info("Aplikasi ini dibuat khusus untuk uji coba personal. Selesaikan tantangan dalam waktu 1 jam!")
+st.sidebar.info("Sistem anti-cheat aktif! Selesaikan tantangan sebelum waktu hitung mundur habis.")
 
 # --- KONDISI 1: MENU UTAMA / SETTING ---
 if st.session_state.status_game == "menu":
@@ -144,7 +147,6 @@ if st.session_state.status_game == "menu":
         waktu_user = st.selectbox("Sekarang jam/waktu bagian apa?", ["Pagi", "Siang", "Sore", "Malam"])
         
     if st.button("🎲 Cari Tantangan (Roll Quest)", type="primary", use_container_width=True):
-        # Filter Quest
         quest_cocok = [
             q for q in BANK_QUEST 
             if lokasi_user in q["lokasi"] and waktu_user in q["waktu"]
@@ -152,79 +154,108 @@ if st.session_state.status_game == "menu":
         
         if quest_cocok:
             st.session_state.quest_aktif = random.choice(quest_cocok)
+            st.session_state.waktu_mulai = datetime.now()  # Catat waktu mulai asli server
             st.session_state.status_game = "quest_running"
             st.rerun()
         else:
             st.error("😔 Maaf, tidak ada quest yang cocok untuk kombinasi tersebut. Coba ganti lokasi!")
 
-# --- KONDISI 2: QUEST SEDANG BERJALAN ---
+# --- KONDISI 2: QUEST SEDANG BERJALAN + COUNTDOWN TIMER ---
 elif st.session_state.status_game == "quest_running":
     q = st.session_state.quest_aktif
     
+    # Kalkulasi sisa waktu
+    waktu_sekarang = datetime.now()
+    waktu_habis = st.session_state.waktu_mulai + timedelta(hours=1)
+    sisa_waktu = waktu_habis - waktu_sekarang
+    detik_sisa = int(sisa_waktu.total_seconds())
+
     st.warning(f"### 🎯 TANTANGAN AKTIF: [{q['kesulitan']}]")
     st.info(f"👉 **\"{q['teks']}\"**")
     st.write(f"💰 **Hadiah:** {q['poin']} Base Poin")
-    
     st.markdown("---")
-    st.write("⏱️ **Waktu Kamu: 1 Jam di Dunia Nyata.**")
-    st.write("Keluar ke dunia nyata sekarang dan lakukan aksinya! Jika sudah selesai atau gagal, kembali ke halaman web ini.")
-    
-    col3, col4 = st.columns(2)
-    with col3:
-        if st.button("✅ SAYA BERHASIL", type="primary", use_container_width=True):
-            st.session_state.status_game = "form_pembuktian"
-            st.rerun()
-    with col4:
-        if st.button("❌ SAYA GAGAL / MENYERAH", type="secondary", use_container_width=True):
-            st.session_state.total_poin -= 30
-            st.error("Quest Gagal! Poin kamu dipotong -30. Jangan menyerah, coba lagi nanti!")
-            time.sleep(2)
+
+    # Logika Tampilan Countdown
+    if detik_sisa > 0:
+        menit = detik_sisa // 60
+        detik = detik_sisa % 60
+        st.error(f"⏱️ **SISA WAKTU KAMU: {menit:02d}:{detik:02d}**")
+        st.write("Keluar ke dunia nyata sekarang! Jangan tutup halaman ini, bicaralah dengan targetmu.")
+        
+        # Tombol penyelesaian
+        col3, col4 = st.columns(2)
+        with col3:
+            if st.button("✅ SAYA BERHASIL", type="primary", use_container_width=True):
+                st.session_state.status_game = "form_pembuktian"
+                st.rerun()
+        with col4:
+            if st.button("❌ SAYA MENYERAH", type="secondary", use_container_width=True):
+                st.session_state.total_poin -= 30
+                st.error("Quest Gagal! Poin kamu dipotong -30.")
+                time.sleep(2)
+                st.session_state.status_game = "menu"
+                st.session_state.quest_aktif = None
+                st.session_state.waktu_mulai = None
+                st.rerun()
+        
+        # Auto-refresh halaman mini agar timer berjalan di layar
+        time.sleep(1)
+        st.rerun()
+        
+    else:
+        # Jika Waktu Habis (Kena Cheat Guard)
+        st.error("🚨 TING-TONG! WAKTU HABIS (EXPIRED).")
+        st.write("Kamu gagal kembali ke base sebelum 1 jam.")
+        st.session_state.total_poin -= 30
+        if st.button("Kembali ke Menu Utama", type="primary", use_container_width=True):
             st.session_state.status_game = "menu"
             st.session_state.quest_aktif = None
+            st.session_state.waktu_mulai = None
             st.rerun()
 
-# --- KONDISI 3: FORM PEMBUKTIAN & SIMULASI PENILAIAN ---
+# --- KONDISI 3: FORM PEMBUKTIAN & SMART SCORE CALCULATION ---
 elif st.session_state.status_game == "form_pembuktian":
     q = st.session_state.quest_aktif
+    
+    # Hitung otomatis berapa menit yang terpakai berdasarkan selisih waktu asli
+    waktu_selesai = datetime.now()
+    durasi_terpakai = waktu_selesai - st.session_state.waktu_mulai
+    menit_pengerjaan = int(durasi_terpakai.total_seconds() // 60)
+    
     st.write("### 📸 Form Pembuktian Quest")
+    st.write(f"⏱️ *Sistem mencatat kamu menyelesaikan quest ini dalam waktu otomatis:* **{menit_pengerjaan} menit**.")
     
-    # Input Bukti sesuai kesepakatan
     file_foto = st.file_uploader("Upload Foto Bareng / Bukti Pendukung", type=["jpg", "jpeg", "png"])
-    info_didapat = st.text_area("Informasi apa saja yang kamu dapat dari orang tersebut secara singkat?", placeholder="Contoh: Nama dia Salsa, dia suka genre musik shoegaze dan main bass...")
-    
-    # Simulasi estimasi waktu pengerjaan untuk bonus kecepatan
-    menit_pengerjaan = st.slider("Berapa menit waktu yang kamu habiskan untuk menyelesaikan quest ini?", 1, 90, 25)
+    info_didapat = st.text_area("Informasi apa saja yang kamu dapat dari orang tersebut secara singkat?", placeholder="Contoh: Dia suka musik punk rock...")
     
     if st.button("🚀 Kirim & Hitung Skor Poin", type="primary", use_container_width=True):
         if not info_didapat:
             st.error("Form info singkat wajib diisi sebagai bukti interaksi sosial!")
         else:
-            # Hitung kalkulasi skor
             bonus_kecepatan = 0
-            if menit_pengerjaan <= 20:
-                bonus_kecepatan = 50
-                st.balloons()
-                st.success("⚡ Luar biasa! Sangat Cepat! Kamu dapat bonus +50 Poin!")
-            elif menit_pengerjaan <= 40:
-                bonus_kecepatan = 25
-                st.success("🏃 Cepat dan Sigap! Kamu dapat bonus +25 Poin!")
-            elif menit_pengerjaan <= 60:
-                st.success("👍 Tepat Waktu! Kamu menyelesaikan quest di bawah 1 jam.")
-            else:
-                st.session_state.total_poin -= 30
-                st.error("⚠️ Meskipun selesai, kamu melebihi batas waktu 1 jam. Quest dianggap expired (-30 Poin).")
-                time.sleep(2)
-                st.session_state.status_game = "menu"
-                st.session_state.quest_aktif = None
-                st.rerun()
-                
-            total_masuk = q['poin'] + bonus_kecepatan
-            st.session_state.total_poin += total_masuk
             
-            st.toast(f"Sukses mencatat bukti! +{total_masuk} Poin masuk.", icon='💰')
-            time.sleep(3)
+            # Anti-cheat evaluation berdasarkan kalkulasi sistem komputer
+            if menit_pengerjaan < 1:
+                st.error("🚨 CHEAT DETECTED: Mustahil menyelesaikan interaksi sosial dalam waktu kurang dari 1 menit! Poin dibatalkan.")
+                time.sleep(3)
+            else:
+                if menit_pengerjaan <= 20:
+                    bonus_kecepatan = 50
+                    st.balloons()
+                    st.success("⚡ BONUS SPEEDRUN! Sangat Cepat (+50 Poin)!")
+                elif menit_pengerjaan <= 40:
+                    bonus_kecepatan = 25
+                    st.success("🏃 SIGAP DAN CEPAT! Kamu dapat bonus (+25 Poin)!")
+                else:
+                    st.success("👍 BERHASIL TEPAT WAKTU! Quest selesai di bawah batas 1 jam.")
+                    
+                total_masuk = q['poin'] + bonus_kecepatan
+                st.session_state.total_poin += total_masuk
+                st.toast(f"Sukses mencatat bukti! +{total_masuk} Poin masuk.", icon='💰')
+                time.sleep(3)
             
             # Reset Status Game ke Menu Utama
             st.session_state.status_game = "menu"
             st.session_state.quest_aktif = None
+            st.session_state.waktu_mulai = None
             st.rerun()
